@@ -8,6 +8,7 @@
 void Iniciar_Gpio();
 void Delay_Ms();
 void juego_luces();
+void Iniciar_Adc1();
 void Iniciar_Tim3();
 void Iniciar_Tim2();
 
@@ -17,7 +18,7 @@ void Iniciar_Tim2();
 int main()
 {
 	// iniciamos el reloj a 16mhz por defecto
-	RCC->CR |= (1UL << 0);
+	//RCC->CR |= (1UL << 0);
 
 	// iniciamos la funcion
 	Iniciar_Gpio();
@@ -28,7 +29,7 @@ int main()
 	GPIOC->BSRR = (1UL << LED_VERDE_C3);
 	// ------------------------
 
-
+	Iniciar_Adc1();
 	Iniciar_Tim3();
 	Iniciar_Tim2();
 

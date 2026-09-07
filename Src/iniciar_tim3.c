@@ -10,6 +10,8 @@
 #include "dir_base.h"
 #include "macros.h"
 
+volatile uint32_t enclavamiento = 0;
+
 void Iniciar_Tim3()
 {
 	// lo primero es habilitar el reloj
@@ -27,7 +29,7 @@ void Iniciar_Tim3()
 	TIM3->CCMR1 |= (6UL << 12);
 
 	// ACTIVAR LA PRECARGA (Preload) DEL CANAL 2 (Crucial para que acepte los cambios del Handler)
-	TIM3->CCMR1 |= (1UL << 15);   // OC1PE = 2
+	TIM3->CCMR1 |= (1UL << 11);   // OC1PE = 2
 
 	// HABILITAR EL CANAL 2
 	TIM3->CCER &= ~(1UL << 4);
@@ -36,14 +38,14 @@ void Iniciar_Tim3()
 	// PARTIMOS DE UN VALOR
 	TIM3->CCR2 = 1500;
 
-	// HACEMOS QUE EL PROCEADOR VEA LA INTERRUPCION
-	TIM3->DIER |= (1UL << 0);
-
 	// HACEMOS QUE EL TEMPORIZADOR ARRANQUE LIMPIO
 	TIM3->EGR |= (1UL << 0); // COMO REINICIA A 0 NO ES NECESARIO LIMPIARLO
 
 
 	TIM3->SR &= ~(1UL << 0);
+
+	// HACEMOS QUE EL PROCEADOR VEA LA INTERRUPCION
+	TIM3->DIER |= (1UL << 0);
 
 	//HABILITAMOS EL TIM
 	TIM3->CR1 |= (1UL << 0);
@@ -54,11 +56,28 @@ void Iniciar_Tim3()
 void TIM3_IRQHandler()
 {
 
-	static uint32_t enclavamiento = 0;
+
 	uint32_t giro_servo = 0;
+	uint32_t temperatura = 0;
 	// miramos la bandera lo primero
 	if ((TIM3->SR & (1UL << 0)) != 0)
 	{
+		// 1. Limpieza preventiva del registro de estado del ADC antes de disparar
+		ADC1->SR &= ~(1UL << 1);
+
+		// logica para el adc
+		ADC1->CR2 |= (1UL << 30); // BIT SWSTART PRIMER DISPARO
+
+		//uint32_t timeout = 10000;
+		//while (!(ADC1->SR & (1UL << 1)) && (timeout > 0)) // ESPERAR A QUE SE ACTIVE EL BIT EOC
+		//{
+			//timeout--;
+		//}
+
+		uint16_t valor_adc = ADC1->DR;
+
+		// ECUACION PARA TRANSFORMAR EL VOLTAJE EN TEMPERATURA
+		temperatura = ((valor_adc * 110) / 4095) - 10;
 
 		uint32_t marcha = ((GPIOC->IDR & (1UL << BOTON_MARCHA_C0)) != 0);
 		uint32_t paro = ((GPIOF->IDR & (1UL << BOTON_PARO_F5)) != 0);
@@ -67,27 +86,50 @@ void TIM3_IRQHandler()
 		if ((marcha || enclavamiento) && (paro == 1))
 		{
 			enclavamiento = 1;
-		} else
+		}
+		else
+		{
+			enclavamiento = 0;
+		}
+
+		if (temperatura >= TEMP_MAX)
 		{
 			enclavamiento = 0;
 		}
 
 		if (enclavamiento == 1)
 		{
-			// APAGAMOS ROJO, ENCENDEMOS VERDE SI EL BOTON ESTA PRESIONADO
+
+			// ENCENDEMOS VERDE Y APAGAMOS ROJO Y AMARILLO SI TODO ESTA BIEN
 			GPIOC->BSRR = (1UL << LED_VERDE_C3);
 			GPIOA->BSRR = (1UL << (LED_ROJO_A3 + 16));
+			GPIOC->BSRR = (1UL << (LED_AMARILLO_C2 + 16));
 
 			giro_servo = 1950;
 
-		} else
+		}
+		else
 		{
-			// APAGAMOS VERDE Y ENENDEMOS ROJO  SI EL BOTON NO ESTA PRESIONADO
-			GPIOA->BSRR = (1UL << LED_ROJO_A3);
-			GPIOC->BSRR = (1UL << (LED_VERDE_C3 + 16));
+			if (temperatura >= TEMP_MAX)
+			{
+				// APAGAMOS VERDE Y ROJO Y AMARILLO SEÑAL QUE LOS MOTORES ESTAN CALIENTES
+				GPIOA->BSRR = (1UL <<(LED_ROJO_A3 + 16));
+				GPIOC->BSRR = (1UL << (LED_VERDE_C3 + 16));
+				GPIOC->BSRR = (1UL << LED_AMARILLO_C2);
 
+				giro_servo = 1500;
+
+			}
+			else
+			{
+
+				// ESTADO REPOSO ESPERANDO, LED ROJO ENCENDIDO , VERDE Y AMARILLO APAGADOS
+				GPIOA->BSRR = (1UL << LED_ROJO_A3);
+				GPIOC->BSRR = (1UL << (LED_VERDE_C3 + 16));
+				GPIOC->BSRR = (1UL << (LED_AMARILLO_C2 + 16));
+			}
+			// servo parado
 			giro_servo = 1500;
-
 		}
 
 		TIM3->CCR2 = giro_servo;

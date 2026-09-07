@@ -18,13 +18,17 @@
 #define RCC_F             5
 #define RCC_TIM2          0
 #define RCC_TIM3          1
-#define BOTON_MARCHA_C0   0
-#define BOTON_PARO_F5     5
-#define LED_VERDE_C3      3
-#define LED_ROJO_A3       3 // TIM2 CANAL 4
-#define SERVO_A7          7 // TIM3 CANAL2
-#define SERVO_A0          0 // TIM2 CANAL1
+#define RCC_ADC1          8
+#define BOTON_MARCHA_C0   (0UL)
+#define BOTON_PARO_F5     (5UL)
+#define LED_VERDE_C3      (3UL)
+#define LED_ROJO_A3       (3UL) // TIM2 CANAL 4
+#define LED_AMARILLO_C2   (2UL)
+#define SERVO_A7          (7UL) // TIM3 CANAL2
+#define SERVO_A0          (0UL) // TIM2 CANAL1
+#define ADC1_B0           (0UL) // ADC1 CANAL 8
 #define MASCARA           0x03UL
+#define TEMP_MAX          60 // TEMPERATURA MAXIMA
 
 
 
